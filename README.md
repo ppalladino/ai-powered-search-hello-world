@@ -5,9 +5,9 @@
 - [venv](https://docs.python.org/3/library/venv.html) 
 ```
 
-# GETTING SET UP
+# Getting Set Up
 
-## INSTALL DEPENDENCIES
+## Install Dependencies
 
 ```
 $ chmod +x install.sh
