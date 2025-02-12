@@ -3,14 +3,25 @@
 import os
 from dotenv import load_dotenv
 from openai import OpenAI
+import ast
+import pandas as pd
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+from tqdm import tqdm
+from rich.console import Console
+from rich.table import Table
+
+# This is only for displaying a progress bar. Just a nice to have.
+tqdm.pandas()
 
 def get_api_key() -> str:
+    # Get the api key from the .env file
     load_dotenv(override=True)
     api_key = os.getenv('OPENAI_API_KEY')    
     return api_key
 
-
-def get_text_embedding(text: str, api_key: str) -> list:
+def request_text_embedding(text: str, api_key: str) -> list:
+    # Request a text embedding from OpenAI for the given text
     client = OpenAI(api_key=api_key)
     response = client.embeddings.create(
         input=text,
@@ -18,35 +29,47 @@ def get_text_embedding(text: str, api_key: str) -> list:
     )
     return response.data[0].embedding
 
-def append_text_embedding_to_search_data():
-    try:
-        df = pd.read_csv("search_data.csv")
-    except FileNotFoundError:
-        typer.echo("Error: 'data/search_data.csv' not found.")
-        raise typer.Exit(code=1)
+def append_text_embeddings_to_search_data():
+    # Read in the sample data
+    df = pd.read_csv("search_data.csv")
 
-    # Combine 'title' and 'overview' into a single text field
-    df['title_overview'] = df.apply(concatenate_title_overview, axis=1)
-   
-    typer.echo("Generating embeddings. This may take a while depending on the dataset size...")
-    api_key = load_api_key()
+    # Read in the api key from the .env file
+    api_key = get_api_key()
 
-    # Generate embeddings for each combined text entry with a progress bar
-    try:
-        df["overview_text_embedding"] = df["title_overview"].progress_apply(
-            lambda text: get_text_embedding(text, api_key)
-        )
-    except Exception:
-        typer.echo("Failed to generate embeddings.")
-        raise typer.Exit(code=1)
+    # Request a text embedding from OpenAI for each row's overview value 
+    # and append it as a new column 'overview_text_embedding'
+    df["overview_text_embedding"] = df["overview"].progress_apply(
+        lambda text: request_text_embedding(text, api_key)
+    )
 
-    # Remove the temporary 'title_overview' column
-    df.drop(columns=['title_overview'], inplace=True)
+    # Save the a new CSV file with the updated data
+    df.to_csv("search_data_with_embeddings.csv", index=False)
 
-    # Save the updated DataFrame with embeddings
-    try:
-        df.to_csv("data/search_data_with_embeddings.csv", index=False)
-        typer.echo("Search data initialized and saved to 'data/search_data_with_embeddings.csv'.")
-    except Exception:
-        typer.echo("Error: Failed to save the embeddings to 'data/search_data_with_embeddings.csv'.")
-        raise typer.Exit(code=1)
+def find_similar_matches(search_term: str, show_n: int = 1):
+    df = pd.read_csv("search_data_with_embeddings.csv")
+
+    # Convert the 'overview_text_embedding' from string representation to actual lists
+    df['overview_text_embedding'] = df['overview_text_embedding'].apply(ast.literal_eval)
+    
+    api_key = get_api_key()
+    
+    # Obtain embedding for the search term
+    search_term_text_embedding = request_text_embedding(search_term, api_key)
+    
+    # Convert embeddings to numpy arrays for efficient similarity computation
+    search_data_text_embeddings = np.array(df['overview_text_embedding'].tolist())
+    search_term_text_embedding = np.array(search_term_text_embedding).reshape(1, -1)
+    
+    # Here is where the magic happens. We compute the cosine similarity of the search 
+    # term embedding and the search data. In "real life" you would probably want to 
+    # query a vector capable database for large datasets, but this is a simple 
+    # "hello world" example :)
+    similarities = cosine_similarity(search_term_text_embedding, search_data_text_embeddings)[0]
+    
+    # Add similarity scores to the DataFrame
+    df['similarity'] = similarities
+    
+    # Sort search data by similarity in descending order and select the top N
+    df_sorted_by_similarity = df.sort_values(by='similarity', ascending=False).head(show_n)
+
+    return df_sorted_by_similarity

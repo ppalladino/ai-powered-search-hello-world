@@ -5,4 +5,4 @@ __pycache__/
 venv/
 .venv/
 .env
-search_data_with_text_embeddings.csv
+search_data_with_embeddings.csv

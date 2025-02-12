@@ -26,24 +26,25 @@ A basic API key costs $5 and for normal learning purposes learning, lasts a long
 
 ```
 # always initialize python virtual environment (venv) in a new terminal session
-$ ./start.sh 
+$ source venv/bin/activate
 ```
 
 ## Initializing search data
 
-The sample data (100 popular movies) is in ./data/search_data.csv. It is stores without text embeddings. To initialize text embedding data:
-
-```
-$ python3 ./cli.py init_data
-```
+The sample data (100 popular movies) is in /search_data.csv. It is stored without text embeddings. 
+To initialize text embedding data, run the search command (see *Search* section below) and the 
+script will requests test embeddings for search data and create a search_data_with_embeddings.csv
+in the root w/ embeddings appended.
 
 ## Search
 
 ```
 # Show top result
-$ python3 ./cli.py search "science fiction about technology"
+$ python main.py "adventure heroes"
 
 # Show top 10 results in desc sementic similarity order
-$ python3 ./cli.py search "science fiction about technology" --n 10
+$ python main.py "adventure heroes" --top_n 10
 
 ```
+
+
